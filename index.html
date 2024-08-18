@@ -27,7 +27,7 @@
             const canvas = document.getElementById('particleCanvas');
             const ctx = canvas.getContext('2d');
 
-            let img, particles = [], animationId;
+            let img, imageData, particles = [], animationId;
             let activeAreas = [];
             let bloomCanvas, bloomCtx, bloomIntensityMap;
             let bloomFrame = 0;
@@ -47,6 +47,14 @@
                     const newWidth = img.width * scaleFactor;
                     const newHeight = img.height * scaleFactor;
 
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = newWidth;
+                    tempCanvas.height = newHeight;
+                    tempCtx.drawImage(img, 0, 0, newWidth, newHeight);
+
+                    imageData = tempCtx.getImageData(0, 0, newWidth, newHeight);
+
                     bloomCanvas = document.createElement('canvas');
                     bloomCanvas.width = canvas.width;
                     bloomCanvas.height = canvas.height;
@@ -54,13 +62,6 @@
 
                     bloomIntensityMap = new Uint8Array(canvas.width * canvas.height);
 
-                    const tempCanvas = document.createElement('canvas');
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCanvas.width = newWidth;
-                    tempCanvas.height = newHeight;
-                    tempCtx.drawImage(img, 0, 0, newWidth, newHeight);
-
-                    const imageData = tempCtx.getImageData(0, 0, newWidth, newHeight);
                     applyThreshold(imageData);
                     createParticles();
                     animate();
@@ -89,8 +90,8 @@
                 for (let i = 0; i < options.particleCount; i++) {
                     const randomActiveArea = activeAreas[Math.floor(Math.random() * activeAreas.length)];
                     particles.push({
-                        x: (randomActiveArea.x / img.width) * canvas.width,
-                        y: (randomActiveArea.y / img.height) * canvas.height,
+                        x: (randomActiveArea.x / imageData.width) * canvas.width,
+                        y: (randomActiveArea.y / imageData.height) * canvas.height,
                         vx: 0,
                         vy: 0,
                         life: Math.random() * 100
@@ -118,8 +119,8 @@
             }
 
             function updateParticle(particle) {
-                const imgX = (particle.x / canvas.width) * img.width;
-                const imgY = (particle.y / canvas.height) * img.height;
+                const imgX = (particle.x / canvas.width) * imageData.width;
+                const imgY = (particle.y / canvas.height) * imageData.height;
                 const brightness = getBrightness(imgX, imgY);
 
                 if (brightness === 0) {
@@ -150,8 +151,8 @@
             }
 
             function drawParticle(particle) {
-                const imgX = (particle.x / canvas.width) * img.width;
-                const imgY = (particle.y / canvas.height) * img.height;
+                const imgX = (particle.x / canvas.width) * imageData.width;
+                const imgY = (particle.y / canvas.height) * imageData.height;
                 const brightness = getBrightness(imgX, imgY);
 
                 let color;
@@ -174,26 +175,26 @@
             }
 
             function getBrightness(x, y) {
-                const i = (Math.floor(y) * img.width + Math.floor(x)) * 4;
-                const r = img.data[i];
-                const g = img.data[i + 1];
-                const b = img.data[i + 2];
+                const i = (Math.floor(y) * imageData.width + Math.floor(x)) * 4;
+                const r = imageData.data[i];
+                const g = imageData.data[i + 1];
+                const b = imageData.data[i + 2];
                 return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
             }
 
             function getColorAt(x, y) {
-                const i = (Math.floor(y) * img.width + Math.floor(x)) * 4;
+                const i = (Math.floor(y) * imageData.width + Math.floor(x)) * 4;
                 return {
-                    r: img.data[i],
-                    g: img.data[i + 1],
-                    b: img.data[i + 2]
+                    r: imageData.data[i],
+                    g: imageData.data[i + 1],
+                    b: imageData.data[i + 2]
                 };
             }
 
             function resetParticle(particle) {
                 const randomActiveArea = activeAreas[Math.floor(Math.random() * activeAreas.length)];
-                particle.x = (randomActiveArea.x / img.width) * canvas.width;
-                particle.y = (randomActiveArea.y / img.height) * canvas.height;
+                particle.x = (randomActiveArea.x / imageData.width) * canvas.width;
+                particle.y = (randomActiveArea.y / imageData.height) * canvas.height;
                 particle.vx = particle.vy = 0;
                 particle.life = 100;
             }
