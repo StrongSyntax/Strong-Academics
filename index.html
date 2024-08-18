@@ -43,9 +43,9 @@
             function loadImage() {
                 img = new Image();
                 img.onload = function() {
-                    const scaleFactor = Math.max(canvas.width / img.width, canvas.height / img.height);
-                    const newWidth = img.width * scaleFactor;
-                    const newHeight = img.height * scaleFactor;
+                    const scaleFactor = Math.min(canvas.width / img.width, canvas.height / img.height);
+                    const newWidth = Math.floor(img.width * scaleFactor);
+                    const newHeight = Math.floor(img.height * scaleFactor);
 
                     const tempCanvas = document.createElement('canvas');
                     const tempCtx = tempCanvas.getContext('2d');
@@ -65,6 +65,9 @@
                     applyThreshold(imageData);
                     createParticles();
                     animate();
+                };
+                img.onerror = function() {
+                    console.error('Error loading image:', options.imageSrc);
                 };
                 img.src = options.imageSrc;
             }
@@ -119,8 +122,8 @@
             }
 
             function updateParticle(particle) {
-                const imgX = (particle.x / canvas.width) * imageData.width;
-                const imgY = (particle.y / canvas.height) * imageData.height;
+                const imgX = Math.floor((particle.x / canvas.width) * imageData.width);
+                const imgY = Math.floor((particle.y / canvas.height) * imageData.height);
                 const brightness = getBrightness(imgX, imgY);
 
                 if (brightness === 0) {
@@ -151,8 +154,8 @@
             }
 
             function drawParticle(particle) {
-                const imgX = (particle.x / canvas.width) * imageData.width;
-                const imgY = (particle.y / canvas.height) * imageData.height;
+                const imgX = Math.floor((particle.x / canvas.width) * imageData.width);
+                const imgY = Math.floor((particle.y / canvas.height) * imageData.height);
                 const brightness = getBrightness(imgX, imgY);
 
                 let color;
@@ -175,7 +178,10 @@
             }
 
             function getBrightness(x, y) {
-                const i = (Math.floor(y) * imageData.width + Math.floor(x)) * 4;
+                if (x < 0 || x >= imageData.width || y < 0 || y >= imageData.height) {
+                    return 0;
+                }
+                const i = (y * imageData.width + x) * 4;
                 const r = imageData.data[i];
                 const g = imageData.data[i + 1];
                 const b = imageData.data[i + 2];
@@ -183,7 +189,10 @@
             }
 
             function getColorAt(x, y) {
-                const i = (Math.floor(y) * imageData.width + Math.floor(x)) * 4;
+                if (x < 0 || x >= imageData.width || y < 0 || y >= imageData.height) {
+                    return { r: 0, g: 0, b: 0 };
+                }
+                const i = (y * imageData.width + x) * 4;
                 return {
                     r: imageData.data[i],
                     g: imageData.data[i + 1],
