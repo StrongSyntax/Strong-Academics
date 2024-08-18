@@ -153,7 +153,7 @@
                     if (distSq < 10000) {
                         const dist = Math.sqrt(distSq);
                         const force = (1 - dist / 100) * cursorStrength;
-                        const multiplier = cursorMode === 'attractive' ? 1 : -1;
+                        const multiplier = cursorStrength > 0 ? 1 : -1;
                         particle.vx += dx / dist * force * multiplier;
                         particle.vy += dy / dist * force * multiplier;
                     }
