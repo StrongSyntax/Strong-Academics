@@ -3,270 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Particle Simulation with Bloom Effect</title>
+    <title>Particle Image Simulator</title>
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #0d0d0d; /* Updated background color */
+        body, html {
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Hide scrollbars */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            position: relative; /* For absolute positioning of canvases */
+            height: 100%;
+            overflow: hidden;
         }
         canvas {
             position: absolute;
-            border: none; /* Hide canvas borders */
-            border-radius: 0;
-        }
-        #particleCanvas {
-            right: 0;
             top: 0;
-            border: none; /* Hide canvas borders */
-        }
-        #imageCanvas {
-            position: absolute;
             right: 0;
-            top: 0;
-            border: none; /* Hide canvas borders */
+            height: 100%;
         }
     </style>
 </head>
 <body>
     <canvas id="particleCanvas"></canvas>
-    <canvas id="imageCanvas"></canvas> <!-- Added canvas for the image -->
 
     <script>
-        function initializeParticleSimulation({
-            imageSrc,
-            threshold = 128,
-            particleCount = 10000,
-            particleSize = 2,
-            attractionStrength = 0.02,
-            velocityDecay = 0.95,
-            cursorStrength = 0.5,
-            useColor = false,
-            bloomEnabled = true,
-            bloomStrength = 100,
-            bloomDuration = 60,
-            bloomColorThreshold = 200
-        }) {
+        function initializeParticleSimulation(options) {
             const canvas = document.getElementById('particleCanvas');
             const ctx = canvas.getContext('2d');
-            const bloomCanvas = document.createElement('canvas');
-            const bloomCtx = bloomCanvas.getContext('2d');
 
-            const imageCanvas = document.getElementById('imageCanvas');
-            const imageCtx = imageCanvas.getContext('2d');
-
-            let img = new Image();
-            let originalImageData, thresholdImageData;
-            let particles = [];
-            let animationId;
-            let mouseX = 0, mouseY = 0;
-            let bloomIntensityMap;
-            let bloomFrame = 0;
+            let img, particles = [], animationId;
             let activeAreas = [];
+            let bloomCanvas, bloomCtx, bloomIntensityMap;
+            let bloomFrame = 0;
 
             function resizeCanvas() {
-                // Calculate the height for the image canvas
-                const imageCanvasHeight = window.innerHeight - 50;
-                imageCanvas.height = imageCanvasHeight;
-
-                img.onload = function() {
-                    const imgAspectRatio = img.width / img.height;
-                    const imageCanvasWidth = imageCanvasHeight * imgAspectRatio;
-                    imageCanvas.width = imageCanvasWidth;
-
-                    // Set the particle canvas size and position
-                    canvas.width = window.innerWidth - imageCanvasWidth;
-                    canvas.height = window.innerHeight;
-
-                    // Position the image canvas
-                    imageCanvas.style.width = `${imageCanvasWidth}px`;
-                    imageCanvas.style.height = `${imageCanvasHeight}px`;
-                    imageCanvas.style.right = `0px`;
-
-                    // Set the bloom canvas size
-                    bloomCanvas.width = canvas.width;
-                    bloomCanvas.height = canvas.height;
-
-                    bloomIntensityMap = new Uint8Array(bloomCanvas.width * bloomCanvas.height);
-
-                    imageCtx.drawImage(img, 0, 0, imageCanvas.width, imageCanvas.height);
-                    originalImageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
-
-                    applyThreshold(threshold);
-                    startParticleSimulation();
-                };
-                img.src = imageSrc;
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
             }
 
             window.addEventListener('resize', resizeCanvas);
-            resizeCanvas(); // Initial call to set sizes
+            resizeCanvas();
 
-            function applyThreshold(threshold) {
-                const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
-                thresholdImageData = new ImageData(imageCanvas.width, imageCanvas.height);
+            function loadImage() {
+                img = new Image();
+                img.onload = function() {
+                    const scaleFactor = Math.max(canvas.width / img.width, canvas.height / img.height);
+                    const newWidth = img.width * scaleFactor;
+                    const newHeight = img.height * scaleFactor;
+
+                    bloomCanvas = document.createElement('canvas');
+                    bloomCanvas.width = canvas.width;
+                    bloomCanvas.height = canvas.height;
+                    bloomCtx = bloomCanvas.getContext('2d');
+
+                    bloomIntensityMap = new Uint8Array(canvas.width * canvas.height);
+
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = newWidth;
+                    tempCanvas.height = newHeight;
+                    tempCtx.drawImage(img, 0, 0, newWidth, newHeight);
+
+                    const imageData = tempCtx.getImageData(0, 0, newWidth, newHeight);
+                    applyThreshold(imageData);
+                    createParticles();
+                    animate();
+                };
+                img.src = options.imageSrc;
+            }
+
+            function applyThreshold(imageData) {
                 activeAreas = [];
-
                 for (let y = 0; y < imageData.height; y++) {
                     for (let x = 0; x < imageData.width; x++) {
                         const i = (y * imageData.width + x) * 4;
                         const r = imageData.data[i];
                         const g = imageData.data[i + 1];
                         const b = imageData.data[i + 2];
-                        const v = (0.2126 * r + 0.7152 * g + 0.0722 * b >= threshold) ? 255 : 0;
-                        thresholdImageData.data[i] = thresholdImageData.data[i + 1] = thresholdImageData.data[i + 2] = v;
-                        thresholdImageData.data[i + 3] = 255;
-
+                        const v = (0.2126 * r + 0.7152 * g + 0.0722 * b >= options.threshold) ? 255 : 0;
                         if (v === 255) {
                             activeAreas.push({x, y});
                         }
                     }
                 }
-                ctx.putImageData(thresholdImageData, 0, 0);
             }
 
-            function startParticleSimulation() {
-                if (!thresholdImageData || activeAreas.length === 0) return;
-                if (animationId) {
-                    cancelAnimationFrame(animationId);
-                }
-
+            function createParticles() {
                 particles = [];
-                for (let i = 0; i < particleCount; i++) {
+                for (let i = 0; i < options.particleCount; i++) {
                     const randomActiveArea = activeAreas[Math.floor(Math.random() * activeAreas.length)];
                     particles.push({
-                        x: (randomActiveArea.x / thresholdImageData.width) * canvas.width,
-                        y: (randomActiveArea.y / thresholdImageData.height) * canvas.height,
+                        x: (randomActiveArea.x / img.width) * canvas.width,
+                        y: (randomActiveArea.y / img.height) * canvas.height,
                         vx: 0,
                         vy: 0,
-                        color: 'white',
                         life: Math.random() * 100
                     });
                 }
-
-                animate();
             }
 
             function animate() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 bloomCtx.clearRect(0, 0, bloomCanvas.width, bloomCanvas.height);
 
-                if (!bloomIntensityMap) {
-                    bloomIntensityMap = new Uint8Array(bloomCanvas.width * bloomCanvas.height);
-                }
                 bloomIntensityMap.fill(0);
 
                 for (let particle of particles) {
-                    const imgX = (particle.x / canvas.width) * thresholdImageData.width;
-                    const imgY = (particle.y / canvas.height) * thresholdImageData.height;
-                    const index = (Math.floor(imgY) * thresholdImageData.width + Math.floor(imgX)) * 4;
-                    const brightness = thresholdImageData.data[index] / 255;
-
-                    if (brightness === 0) {
-                        const randomActiveArea = activeAreas[Math.floor(Math.random() * activeAreas.length)];
-                        particle.x = (randomActiveArea.x / thresholdImageData.width) * canvas.width;
-                        particle.y = (randomActiveArea.y / thresholdImageData.height) * canvas.height;
-                        particle.vx = particle.vy = 0;
-                        continue;
-                    }
-
-                    particle.vx += (Math.random() - 0.5) * 0.5;
-                    particle.vy += (Math.random() - 0.5) * 0.5;
-
-                    particle.vx += (brightness - 0.5) * attractionStrength;
-                    particle.vy += (brightness - 0.5) * attractionStrength;
-
-                    const dx = mouseX - particle.x;
-                    const dy = mouseY - particle.y;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq < 10000) {
-                        const dist = Math.sqrt(distSq);
-                        const force = (1 - dist / 100) * cursorStrength;
-                        const multiplier = cursorStrength > 0 ? 1 : -1;
-                        particle.vx += dx / dist * force * multiplier;
-                        particle.vy += dy / dist * force * multiplier;
-                    }
-
-                    particle.vx *= velocityDecay;
-                    particle.vy *= velocityDecay;
-
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-
-                    if (particle.x < 0 || particle.x > canvas.width ||
-                        particle.y < 0 || particle.y > canvas.height) {
-                        const randomActiveArea = activeAreas[Math.floor(Math.random() * activeAreas.length)];
-                        particle.x = (randomActiveArea.x / thresholdImageData.width) * canvas.width;
-                        particle.y = (randomActiveArea.y / thresholdImageData.height) * canvas.height;
-                        particle.vx = particle.vy = 0;
-                    }
-
-                    particle.life -= 0.1;
-                    if (particle.life <= 0) {
-                        particle.life = 100;
-                        const randomActiveArea = activeAreas[Math.floor(Math.random() * activeAreas.length)];
-                        particle.x = (randomActiveArea.x / thresholdImageData.width) * canvas.width;
-                        particle.y = (randomActiveArea.y / thresholdImageData.height) * canvas.height;
-                    }
-
-                    let color;
-                    if (useColor) {
-                        const origIndex = (Math.floor(imgY) * originalImageData.width + Math.floor(imgX)) * 4;
-                        const r = originalImageData.data[origIndex];
-                        const g = originalImageData.data[origIndex + 1];
-                        const b = originalImageData.data[origIndex + 2];
-                        color = `rgba(${r}, ${g}, ${b}, ${brightness})`;
-
-                        if (r > bloomColorThreshold || g > bloomColorThreshold || b > bloomColorThreshold) {
-                            const bloomIndex = Math.floor(particle.y) * canvas.width + Math.floor(particle.x);
-                            bloomIntensityMap[bloomIndex] = Math.min(bloomIntensityMap[bloomIndex] + 1, 255);
-                        }
-                    } else {
-                        color = `rgba(255, 255, 255, ${brightness})`;
-                    }
-
-                    ctx.fillStyle = color;
-                    ctx.beginPath();
-                    ctx.arc(particle.x, particle.y, particleSize / 2, 0, Math.PI * 2);
-                    ctx.fill();
+                    updateParticle(particle);
+                    drawParticle(particle);
                 }
 
-                if (bloomEnabled) {
-                    applyDynamicBloom(bloomStrength, bloomDuration);
+                if (options.bloomEnabled) {
+                    applyBloom();
                 }
 
                 bloomFrame++;
                 animationId = requestAnimationFrame(animate);
             }
 
-            function applyDynamicBloom(strength, duration) {
-                bloomCtx.clearRect(0, 0, bloomCanvas.width, bloomCanvas.height);
-                bloomCtx.drawImage(canvas, 0, 0);
+            function updateParticle(particle) {
+                const imgX = (particle.x / canvas.width) * img.width;
+                const imgY = (particle.y / canvas.height) * img.height;
+                const brightness = getBrightness(imgX, imgY);
 
-                // Apply horizontal and vertical blur
+                if (brightness === 0) {
+                    resetParticle(particle);
+                    return;
+                }
+
+                particle.vx += (Math.random() - 0.5) * 0.5;
+                particle.vy += (Math.random() - 0.5) * 0.5;
+
+                particle.vx += (brightness - 0.5) * options.attractionStrength;
+                particle.vy += (brightness - 0.5) * options.attractionStrength;
+
+                particle.vx *= options.velocityDecay;
+                particle.vy *= options.velocityDecay;
+
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+
+                if (isOutOfBounds(particle)) {
+                    resetParticle(particle);
+                }
+
+                particle.life -= 0.1;
+                if (particle.life <= 0) {
+                    resetParticle(particle);
+                }
+            }
+
+            function drawParticle(particle) {
+                const imgX = (particle.x / canvas.width) * img.width;
+                const imgY = (particle.y / canvas.height) * img.height;
+                const brightness = getBrightness(imgX, imgY);
+
+                let color;
+                if (options.useColor) {
+                    const {r, g, b} = getColorAt(imgX, imgY);
+                    color = `rgba(${r}, ${g}, ${b}, ${brightness})`;
+
+                    if (r > options.bloomColorThreshold || g > options.bloomColorThreshold || b > options.bloomColorThreshold) {
+                        const bloomIndex = Math.floor(particle.y) * canvas.width + Math.floor(particle.x);
+                        bloomIntensityMap[bloomIndex] = Math.min(bloomIntensityMap[bloomIndex] + 1, 255);
+                    }
+                } else {
+                    color = `rgba(255, 255, 255, ${brightness})`;
+                }
+
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, options.particleSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            function getBrightness(x, y) {
+                const i = (Math.floor(y) * img.width + Math.floor(x)) * 4;
+                const r = img.data[i];
+                const g = img.data[i + 1];
+                const b = img.data[i + 2];
+                return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            }
+
+            function getColorAt(x, y) {
+                const i = (Math.floor(y) * img.width + Math.floor(x)) * 4;
+                return {
+                    r: img.data[i],
+                    g: img.data[i + 1],
+                    b: img.data[i + 2]
+                };
+            }
+
+            function resetParticle(particle) {
+                const randomActiveArea = activeAreas[Math.floor(Math.random() * activeAreas.length)];
+                particle.x = (randomActiveArea.x / img.width) * canvas.width;
+                particle.y = (randomActiveArea.y / img.height) * canvas.height;
+                particle.vx = particle.vy = 0;
+                particle.life = 100;
+            }
+
+            function isOutOfBounds(particle) {
+                return particle.x < 0 || particle.x > canvas.width || particle.y < 0 || particle.y > canvas.height;
+            }
+
+            function applyBloom() {
+                bloomCtx.globalCompositeOperation = 'source-over';
+                bloomCtx.drawImage(canvas, 0, 0);
+                
+                bloomCtx.filter = 'blur(4px)';
+                bloomCtx.globalCompositeOperation = 'lighten';
+                bloomCtx.drawImage(bloomCanvas, 0, 0);
+                
                 bloomCtx.filter = 'blur(4px)';
                 bloomCtx.globalCompositeOperation = 'lighten';
                 bloomCtx.drawImage(bloomCanvas, 0, 0);
 
-                bloomCtx.globalCompositeOperation = 'source-over';
                 bloomCtx.filter = 'none';
-                bloomCtx.drawImage(bloomCanvas, 0, 0);
+                bloomCtx.globalCompositeOperation = 'source-over';
 
-                bloomCtx.fillStyle = `rgba(255, 255, 255, ${strength / 255})`;
-                bloomCtx.fillRect(0, 0, bloomCanvas.width, bloomCanvas.height);
+                const bloomImageData = bloomCtx.getImageData(0, 0, bloomCanvas.width, bloomCanvas.height);
+
+                for (let i = 0; i < bloomImageData.data.length; i += 4) {
+                    const index = i / 4;
+                    const intensity = bloomIntensityMap[index];
+                    const fade = Math.max(0, 1 - (bloomFrame % options.bloomDuration) / options.bloomDuration);
+                    const bloomFactor = intensity / 255 * options.bloomStrength / 100 * fade;
+
+                    bloomImageData.data[i] = Math.min(255, bloomImageData.data[i] * (1 + bloomFactor));
+                    bloomImageData.data[i + 1] = Math.min(255, bloomImageData.data[i + 1] * (1 + bloomFactor));
+                    bloomImageData.data[i + 2] = Math.min(255, bloomImageData.data[i + 2] * (1 + bloomFactor));
+                }
+
+                bloomCtx.putImageData(bloomImageData, 0, 0);
+
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.drawImage(bloomCanvas, 0, 0);
+                ctx.globalCompositeOperation = 'source-over';
             }
 
-            canvas.addEventListener('mousemove', function(e) {
-                const rect = canvas.getBoundingClientRect();
-                mouseX = e.clientX - rect.left;
-                mouseY = e.clientY - rect.top;
-            });
+            loadImage();
         }
 
         // Example usage:
