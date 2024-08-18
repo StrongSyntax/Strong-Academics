@@ -7,24 +7,38 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #121212;
-            color: #e0e0e0;
+            background-color: #0d0d0d; /* Updated background color */
             margin: 0;
             padding: 0;
+            overflow: hidden; /* Hide scrollbars */
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
         }
         canvas {
-            border: 2px solid #444;
-            border-radius: 15px;
-            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            border: none; /* Hide canvas borders */
+            border-radius: 0;
+        }
+        #imageCanvas {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 300px; /* Adjust width of the image canvas */
+            height: 100vh;
+            border: none; /* Hide image canvas borders */
+            border-radius: 0;
         }
     </style>
 </head>
 <body>
     <canvas id="particleCanvas"></canvas>
+    <canvas id="imageCanvas"></canvas> <!-- Added canvas for the image -->
 
     <script>
         function initializeParticleSimulation({
@@ -46,6 +60,9 @@
             const bloomCanvas = document.createElement('canvas');
             const bloomCtx = bloomCanvas.getContext('2d');
 
+            const imageCanvas = document.getElementById('imageCanvas');
+            const imageCtx = imageCanvas.getContext('2d');
+
             let img = new Image();
             let originalImageData, thresholdImageData;
             let particles = [];
@@ -55,21 +72,26 @@
             let bloomFrame = 0;
             let activeAreas = [];
 
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                imageCanvas.height = window.innerHeight;
+                imageCanvas.width = 300; // Fixed width for the image canvas
+
+                bloomCanvas.width = canvas.width;
+                bloomCanvas.height = canvas.height;
+            }
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas(); // Initial call to set sizes
+
             img.onload = function() {
                 const scaleFactor = Math.min(canvas.width / img.width, canvas.height / img.height);
                 const newWidth = img.width * scaleFactor;
                 const newHeight = img.height * scaleFactor;
 
-                canvas.width = newWidth * 1.5;
-                canvas.height = newHeight * 1.5;
-
-                bloomCanvas.width = canvas.width;
-                bloomCanvas.height = canvas.height;
-
-                bloomIntensityMap = new Uint8Array(bloomCanvas.width * bloomCanvas.height);
-
-                ctx.drawImage(img, 0, 0, newWidth, newHeight);
-                originalImageData = ctx.getImageData(0, 0, newWidth, newHeight);
+                imageCtx.drawImage(img, 0, 0, newWidth, newHeight);
+                originalImageData = imageCtx.getImageData(0, 0, newWidth, newHeight);
 
                 applyThreshold(threshold);
                 startParticleSimulation();
@@ -77,8 +99,8 @@
             img.src = imageSrc;
 
             function applyThreshold(threshold) {
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                thresholdImageData = new ImageData(canvas.width, canvas.height);
+                const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                thresholdImageData = new ImageData(imageCanvas.width, imageCanvas.height);
                 activeAreas = [];
 
                 for (let y = 0; y < imageData.height; y++) {
