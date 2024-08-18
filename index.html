@@ -15,24 +15,23 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
+            position: relative; /* For absolute positioning of canvases */
         }
         canvas {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
             border: none; /* Hide canvas borders */
             border-radius: 0;
+        }
+        #particleCanvas {
+            right: 0;
+            top: 0;
+            border: none; /* Hide canvas borders */
         }
         #imageCanvas {
             position: absolute;
             right: 0;
             top: 0;
-            width: 300px; /* Adjust width of the image canvas */
-            height: 100vh;
-            border: none; /* Hide image canvas borders */
-            border-radius: 0;
+            border: none; /* Hide canvas borders */
         }
     </style>
 </head>
@@ -73,30 +72,41 @@
             let activeAreas = [];
 
             function resizeCanvas() {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                imageCanvas.height = window.innerHeight;
-                imageCanvas.width = 300; // Fixed width for the image canvas
+                // Calculate the height for the image canvas
+                const imageCanvasHeight = window.innerHeight - 50;
+                imageCanvas.height = imageCanvasHeight;
 
-                bloomCanvas.width = canvas.width;
-                bloomCanvas.height = canvas.height;
+                img.onload = function() {
+                    const imgAspectRatio = img.width / img.height;
+                    const imageCanvasWidth = imageCanvasHeight * imgAspectRatio;
+                    imageCanvas.width = imageCanvasWidth;
+
+                    // Set the particle canvas size and position
+                    canvas.width = window.innerWidth - imageCanvasWidth;
+                    canvas.height = window.innerHeight;
+
+                    // Position the image canvas
+                    imageCanvas.style.width = `${imageCanvasWidth}px`;
+                    imageCanvas.style.height = `${imageCanvasHeight}px`;
+                    imageCanvas.style.right = `0px`;
+
+                    // Set the bloom canvas size
+                    bloomCanvas.width = canvas.width;
+                    bloomCanvas.height = canvas.height;
+
+                    bloomIntensityMap = new Uint8Array(bloomCanvas.width * bloomCanvas.height);
+
+                    imageCtx.drawImage(img, 0, 0, imageCanvas.width, imageCanvas.height);
+                    originalImageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+
+                    applyThreshold(threshold);
+                    startParticleSimulation();
+                };
+                img.src = imageSrc;
             }
 
             window.addEventListener('resize', resizeCanvas);
             resizeCanvas(); // Initial call to set sizes
-
-            img.onload = function() {
-                const scaleFactor = Math.min(canvas.width / img.width, canvas.height / img.height);
-                const newWidth = img.width * scaleFactor;
-                const newHeight = img.height * scaleFactor;
-
-                imageCtx.drawImage(img, 0, 0, newWidth, newHeight);
-                originalImageData = imageCtx.getImageData(0, 0, newWidth, newHeight);
-
-                applyThreshold(threshold);
-                startParticleSimulation();
-            };
-            img.src = imageSrc;
 
             function applyThreshold(threshold) {
                 const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
@@ -147,6 +157,9 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 bloomCtx.clearRect(0, 0, bloomCanvas.width, bloomCanvas.height);
 
+                if (!bloomIntensityMap) {
+                    bloomIntensityMap = new Uint8Array(bloomCanvas.width * bloomCanvas.height);
+                }
                 bloomIntensityMap.fill(0);
 
                 for (let particle of particles) {
