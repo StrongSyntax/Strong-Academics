@@ -1,0 +1,144 @@
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0; /* Removed margin to avoid extra space */
+    background-color: #161616;
+    color: #ffffff; /* Set default text color to white */
+}
+
+header {
+    background: #333;
+    color: #fff;
+    padding: 10px 0;
+    text-align: center;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh; /* Full height for the introduction section */
+    overflow: hidden;
+}
+
+#intro {
+    display: flex;
+    align-items: center;
+    opacity: 0; /* Initially hidden */
+    transition: opacity 1s ease;
+}
+
+.image-container {
+    flex: 1;
+}
+
+.profile-pic {
+    width: 250px; /* Adjust as needed */
+    border-radius: 50%;
+    margin-right: 20px; /* Space between image and text */
+    opacity: 0; /* Initially hidden */
+    transform: translateY(20px); /* Slide effect */
+    transition: opacity 1s ease, transform 1s ease;
+}
+
+.text-container {
+    flex: 2;
+}
+
+.typed-text {
+    font-size: 1.8em;
+    opacity: 0; /* Initially hidden */
+    transform: translateY(20px); /* Slide effect */
+    transition: opacity 1s ease, transform 1s ease;
+}
+
+.description {
+    opacity: 0; /* Initially hidden */
+    transform: translateY(20px); /* Slide effect */
+    transition: opacity 1s ease, transform 1s ease;
+}
+
+#navigation {
+    margin-top: 50px;
+}
+
+nav ul {
+    list-style: none;
+    padding: 0;
+}
+
+nav ul li {
+    display: inline;
+    margin: 0 15px;
+}
+
+nav ul li a {
+    color: #fff; /* Changed to white for visibility */
+    text-decoration: none;
+}
+
+h1, h2 {
+    color: #ffffff;
+}
+
+section {
+    margin-bottom: 20px;
+    background: #1a1a1a; /* Dark background for sections */
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    color: #ffffff; /* White text for section */
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #ccc; /* Light grey border */
+    text-align: left;
+}
+
+footer {
+    text-align: center;
+    padding: 10px 0;
+    background: #333;
+    color: #fff;
+}
+
+.hidden {
+    opacity: 0; /* Initially hidden */
+    transition: opacity 1s ease;
+}
+
+.visible {
+    opacity: 1; /* Visible class for fading in */
+}
+
+.typed-blurb {
+    display: inline-block;
+    white-space: nowrap; /* Prevents the text from wrapping */
+    overflow: hidden; /* Hides the overflowing text */
+    border-right: 2px solid; /* Creates a cursor effect */
+    animation: typing 4s steps(40, end), blink-caret .75s step-end infinite;
+    font-size: 1.2em; /* Adjust size as needed */
+}
+
+@keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+}
+
+@keyframes blink-caret {
+    0%, 100% { border-color: transparent; }
+    50% { border-color: white; }
+}
+
+/* New class to hide the cursor after typing is complete */
+.cursor-hidden {
+    border-color: transparent; /* Hide cursor */
+    animation: none; /* Stop the blinking effect */
+}
